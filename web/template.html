@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mars Pathfinder – terrain-based route planner (prototype)</title>
+<style>
+:root{--bg:#070b14;--panel:#0d1424;--panel2:#111a2e;--line:#22304d;--txt:#e6ecf7;--mute:#8c9bb8;--acc:#38bdf8;--acc2:#fb923c;
+--s0:#22c55e;--s1:#facc15;--s2:#fb923c;--s3:#ef4444}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--txt);font:14px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+header{display:flex;align-items:center;gap:18px;padding:10px 16px;border-bottom:1px solid var(--line);background:#0a1020;flex-wrap:wrap}
+.brand b{font-size:20px;letter-spacing:.08em}.brand span{display:block;color:var(--mute);font-size:11px}
+nav{display:flex;gap:6px;flex-wrap:wrap}
+nav button{background:var(--panel);color:var(--txt);border:1px solid var(--line);border-radius:8px;padding:8px 14px;cursor:pointer;font:inherit}
+nav button.on{border-color:var(--acc);box-shadow:0 0 0 1px var(--acc) inset;color:#fff}
+nav .badge{background:var(--s3);color:#fff;border-radius:10px;padding:0 7px;font-size:11px;margin-left:6px}
+.banner{margin-left:auto;font-size:11px;color:var(--s1);border:1px solid #5a4a10;background:#1d1905;padding:5px 9px;border-radius:6px;max-width:420px}
+main{padding:12px 16px}
+.tab{display:none}.tab.on{display:block}
+.grid{display:grid;gap:12px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px}
+.card h3{margin:0 0 8px;font-size:13px;letter-spacing:.05em;text-transform:uppercase;color:var(--acc)}
+.kv{display:grid;grid-template-columns:1fr auto;gap:3px 12px;font-size:13px}.kv span:nth-child(odd){color:var(--mute)}
+.kv span:nth-child(even){text-align:right;font-variant-numeric:tabular-nums}
+#mission{grid-template-columns:290px minmax(0,1fr) 290px}
+#mapwrap{position:relative;height:640px;background:#000;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+#map{width:100%;height:100%;display:block;cursor:crosshair;touch-action:none}
+#layers{position:absolute;left:8px;top:8px;background:#0b1222ee;border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-size:12px}
+#layers label{display:block;cursor:pointer;white-space:nowrap}
+#layers hr{border:0;border-top:1px solid var(--line);margin:6px 0}
+#readout{position:absolute;left:8px;bottom:8px;background:#0b1222ee;border:1px solid var(--line);border-radius:6px;padding:4px 8px;font-size:11.5px;font-variant-numeric:tabular-nums}
+#scale{position:absolute;right:10px;bottom:10px;font-size:11px;text-align:center}
+#scale i{display:block;height:5px;border:2px solid #fff;border-top:none;margin-bottom:2px}
+#legend{position:absolute;right:8px;top:8px;background:#0b1222ee;border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-size:11px;max-width:190px}
+#legend .bar{height:10px;border-radius:3px;margin:4px 0 2px}
+#msg{position:absolute;left:50%;top:10px;transform:translateX(-50%);background:#0b1222f2;border:1px solid var(--acc);border-radius:8px;padding:6px 12px;font-size:12px;display:none}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:6px 0}
+button.b{background:#12213c;color:var(--txt);border:1px solid var(--line);border-radius:7px;padding:6px 10px;cursor:pointer;font:inherit;font-size:12.5px}
+button.b:hover{border-color:var(--acc)}button.b.on{border-color:var(--acc);background:#0f3047}
+input[type=number],input[type=text],textarea,select{background:#0a1224;color:var(--txt);border:1px solid var(--line);border-radius:6px;padding:4px 6px;font:inherit;font-size:12.5px}
+input[type=number]{width:84px}
+input[type=range]{width:100%}
+.small{font-size:11.5px;color:var(--mute)}
+.chip{display:inline-flex;align-items:center;gap:5px;border-radius:12px;padding:1px 9px;font-size:12px;font-weight:600;border:1px solid}
+.s0{color:var(--s0);border-color:var(--s0)}.s1{color:var(--s1);border-color:var(--s1)}.s2{color:var(--s2);border-color:var(--s2)}.s3{color:var(--s3);border-color:var(--s3)}
+.tag{font-size:10.5px;border:1px solid var(--line);border-radius:4px;padding:0 5px;color:var(--mute)}
+.tag.off{color:#7dd3fc;border-color:#1e5b7a}.tag.prop{color:#fdba74;border-color:#7a4a1e}
+#bottom{grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);margin-top:12px}
+#prof{width:100%;height:210px;display:block}
+.alert{border-left:4px solid;border-radius:6px;background:var(--panel2);padding:8px 10px;margin:7px 0}
+.alert.s0{border-color:var(--s0)}.alert.s1{border-color:var(--s1)}.alert.s2{border-color:var(--s2)}.alert.s3{border-color:var(--s3)}
+.alert b{display:block;font-size:13px}.alert .small{color:#b7c3dc}
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:10px}
+.val{font-size:26px;font-weight:700;font-variant-numeric:tabular-nums}.val small{font-size:12px;font-weight:400;color:var(--mute)}
+table{border-collapse:collapse;width:100%;font-size:12.5px}th,td{border-bottom:1px solid var(--line);padding:5px 6px;text-align:left}th{color:var(--mute);font-weight:500}
+details summary{cursor:pointer;color:var(--acc);font-size:12.5px}
+textarea{width:100%;height:230px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:11.5px}
+@media(max-width:1100px){#mission{grid-template-columns:1fr}#bottom{grid-template-columns:1fr}#mapwrap{height:520px}}
+</style>
+</head>
+<body>
+<header>
+  <div class="brand"><b>MARS PATHFINDER</b><span>Explore · Plan · Monitor · Survive — research prototype</span></div>
+  <nav id="nav">
+    <button data-t="mission" class="on">Mission Control</button>
+    <button data-t="pharma">Pharmaceutical &amp; Medical</button>
+    <button data-t="life">Life-Support</button>
+    <button data-t="alerts">Alerts <span class="badge" id="badge">0</span></button>
+    <button data-t="about">Data &amp; Methods</button>
+  </nav>
+  <div class="banner">Decision-support prototype. Not flight-certified, not a real suit monitor, not a safety guarantee. Resource inputs are hypothetical.</div>
+</header>
+<main>
+
+<!-- ============ MISSION CONTROL ============ -->
+<section id="t-mission" class="tab on">
+ <div id="mission" class="grid">
+  <div class="grid" style="align-content:start">
+    <div class="card"><h3>Mission overview</h3>
+      <div class="kv">
+        <span>Region</span><span>Jezero eastern valley (HiRISE DTM)</span>
+        <span>Start (lon, lat)</span><span id="o-start">–</span>
+        <span>Destination</span><span id="o-goal">–</span>
+        <span>Route status</span><span id="o-status">–</span>
+      </div>
+      <div class="row"><button class="b" id="bStart">Set start</button><button class="b" id="bGoal">Set destination</button><button class="b" id="bDemo">Reset</button></div>
+      <div class="small">Click a button, then click the map. Or just click the map twice: start, then destination. No-data cells are rejected.</div>
+    </div>
+    <div class="card"><h3>Route analysis</h3>
+      <div class="kv">
+        <span>Distance (map)</span><span id="r-dist">–</span>
+        <span>Distance (3-D)</span><span id="r-d3">–</span>
+        <span>Elevation gain</span><span id="r-gain">–</span>
+        <span>Elevation loss</span><span id="r-loss">–</span>
+        <span>Max slope on route</span><span id="r-max">–</span>
+        <span>Mean slope</span><span id="r-mean">–</span>
+        <span>Cells &gt; 25 % on route</span><span id="r-steep">–</span>
+        <span>Roughness mean / max</span><span id="r-rough">–</span>
+        <span>Travel time @ <input type="number" id="speed" value="2.5" step="0.5" min="0.5" max="6"> km/h</span><span id="r-time">–</span>
+        <span>Search</span><span id="r-search">–</span>
+      </div>
+      <div class="small">Time uses an assumed constant speed (hypothetical input).</div>
+    </div>
+    <div class="card"><h3>Cost model <span class="tag prop">prototype assumption</span></h3>
+      <div class="small">Hard exclusion: move slope above the limit, and any no-data cell. Rough cells (RMS residual from the 2 m DTM, a proxy for rocky terrain) above the roughness limit are excluded too. Otherwise cost = 3-D distance × (1 + k·(slope/limit)² + kr·(roughness/limit)²).</div>
+      <div class="row"><label for="lim">Slope limit</label><span id="limv"></span></div>
+      <input type="range" id="lim" min="10" max="70" value="47">
+      <div class="row"><label for="kk">Slope penalty k</label><span id="kkv"></span></div>
+      <input type="range" id="kk" min="0" max="10" step="0.5" value="4">
+      <div class="row"><label for="rmax">Roughness limit</label><span id="rmaxv"></span></div>
+      <input type="range" id="rmax" min="0.4" max="1.5" step="0.05" value="1.0">
+      <div class="row"><label for="kr">Roughness penalty kr</label><span id="krv"></span></div>
+      <input type="range" id="kr" min="0" max="10" step="0.5" value="3">
+      <div class="row"><button class="b" id="bCmp">Compare A* vs Dijkstra</button></div>
+      <div class="small" id="cmpOut"></div>
+    </div>
+  </div>
+
+  <div id="mapwrap">
+    <canvas id="map"></canvas>
+    <div id="layers">
+      <b>Base layer</b>
+      <label><input type="radio" name="base" value="ortho" checked> HiRISE ortho (IRB false colour)</label>
+      <label><input type="radio" name="base" value="hill"> Hillshade (from DTM)</label>
+      <label><input type="radio" name="base" value="elev"> Elevation + hillshade</label>
+      <label><input type="radio" name="base" value="slope"> Slope</label>
+      <label><input type="radio" name="base" value="rough"> Roughness (rock proxy)</label>
+      <hr><b>Overlays</b>
+      <label><input type="checkbox" id="ovExcl" checked> Excluded: slope or roughness over limit</label>
+      <label><input type="checkbox" id="ovNo" checked> No-data / unknown</label>
+      <label><input type="checkbox" id="ovRoute" checked> Computed route</label>
+    </div>
+    <div id="legend"></div>
+    <div id="msg"></div>
+    <div id="readout">Move the cursor over the map</div>
+    <div id="scale"><i id="scaleBar"></i><span id="scaleTxt"></span></div>
+  </div>
+
+  <div class="grid" style="align-content:start">
+    <div class="card"><h3>Top alerts</h3><div id="topAlerts"></div><div class="small">Full list under “Alerts”.</div></div>
+    <div class="card"><h3>Mapped hazards &amp; uncertainty</h3>
+      <div class="small">Hazards in this prototype: <b>steep slopes and rough (blocky) terrain</b>, both derived from the HiRISE DTM. Individual boulders, soft sand and rock-abundance maps are <b>not modelled</b>; roughness is only a proxy. Terrain is an 8 m average of a 2 m DTM, so features smaller than a few metres are invisible to the planner. No-data cells are never treated as safe.</div>
+    </div>
+    <div class="card"><h3>Science context</h3>
+      <div class="small">Pilot region is the eastern valley of Jezero Crater, an ancient lake basin and the Perseverance rover's landing region. Add source-linked science targets here (name, instrument, date, citation) once chosen.</div>
+    </div>
+  </div>
+ </div>
+
+ <div id="bottom" class="grid">
+  <div class="card"><h3>Elevation profile</h3><canvas id="prof"></canvas>
+    <div class="small">Elevation relative to the Mars datum used by the DTM (m). Segment colour = slope band: ▁ &lt;10 % · ▃ 10–20 % · ▅ 20 %+; hover for exact values.</div></div>
+  <div class="card"><h3>Hypothetical round-trip oxygen estimator <span class="tag prop">assumptions</span></h3>
+    <div class="grid" style="grid-template-columns:1fr 1fr;gap:6px 14px">
+      <label class="small">Flat-walk metabolic rate (W)<br><input type="number" id="m0" value="300"></label>
+      <label class="small">Extra W per 1 % uphill<br><input type="number" id="mup" value="25"></label>
+      <label class="small">Science stop (min, 200 W)<br><input type="number" id="stop" value="30"></label>
+      <label class="small">Contingency (%)<br><input type="number" id="cont" value="25"></label>
+      <label class="small">O₂ available (L, STP)<br><input type="number" id="o2av" value="1200"></label>
+      <label class="small">Respiratory quotient<br><input type="number" id="rq" value="0.85" step="0.01"></label>
+    </div>
+    <div class="kv" style="margin-top:8px">
+      <span>Outbound O₂</span><span id="e-out">–</span>
+      <span>Return O₂ (same path reversed)</span><span id="e-ret">–</span>
+      <span>Science stop + contingency</span><span id="e-ext">–</span>
+      <span>Total required</span><span id="e-tot">–</span>
+      <span>Projected reserve at return</span><span id="e-res">–</span>
+      <span>CO₂ produced (RQ × O₂)</span><span id="e-co2">–</span>
+    </div>
+    <div class="small">Energy equivalent ≈ 20.1 kJ per litre O₂. All inputs are placeholders, not a NASA suit model.</div>
+  </div>
+ </div>
+</section>
+
+<!-- ============ PHARMA ============ -->
+<section id="t-pharma" class="tab">
+ <div class="grid" style="grid-template-columns:minmax(0,1.6fr) minmax(0,1fr)">
+  <div class="card"><h3>Pharmaceutical inventory (FEFO order) <span class="tag prop">fictional demo data</span></h3>
+    <table id="medTbl"></table>
+    <div class="small">FEFO = first-expiry, first-out. Alerts: below minimum stock, expiring within 90 days, expired, recalled batch, storage excursion.</div>
+  </div>
+  <div class="card"><h3>Crew medical monitoring <span class="tag prop">demo profile</span></h3>
+    <div id="vitals"></div>
+    <div class="small">Reference bands are proposed general adult ranges and must be confirmed by a clinician. The system flags readings; it does not diagnose or prescribe.</div>
+  </div>
+ </div>
+</section>
+
+<!-- ============ LIFE SUPPORT ============ -->
+<section id="t-life" class="tab">
+ <div class="row"><b>What-if scenarios:</b>
+  <button class="b" data-sc="nominal">Nominal</button><button class="b" data-sc="co2">Scrubber degraded</button>
+  <button class="b" data-sc="leak">Cabin leak</button><button class="b" data-sc="water">Water shortage</button>
+  <span class="small">Values are simulated inputs, not measurements.</span></div>
+ <div class="cards" id="lifeCards"></div>
+ <details class="card" style="margin-top:12px"><summary>Edit alert thresholds (JSON, applied live)</summary>
+   <div class="small">Bands: <code>lo</code> inclusive, <code>hi</code> exclusive, <code>sev</code> 0 normal · 1 watch · 2 alert · 3 critical. Thresholds NASA does not define are tagged “proposed”.</div>
+   <textarea id="cfgTxt" spellcheck="false"></textarea>
+   <div class="row"><button class="b" id="cfgApply">Apply</button><button class="b" id="cfgReset">Reset to defaults</button><span class="small" id="cfgMsg"></span></div>
+ </details>
+</section>
+
+<!-- ============ ALERTS ============ -->
+<section id="t-alerts" class="tab"><div class="card"><h3>All alerts (most severe first)</h3><div id="allAlerts"></div></div></section>
+
+<!-- ============ ABOUT ============ -->
+<section id="t-about" class="tab">
+ <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(340px,1fr))">
+  <div class="card"><h3>Dataset register</h3><div class="kv">
+   <span>Product</span><span>DTEED_033651_1990_033717_1990_A01</span>
+   <span>Instrument / mission</span><span>HiRISE, Mars Reconnaissance Orbiter</span>
+   <span>Source</span><span>NASA/JPL/University of Arizona (HiRISE DTM catalog, uahirise.org/dtm)</span>
+   <span>Native resolution</span><span>2.019 m/pixel, 3202 × 5764</span>
+   <span>Used here</span><span>8.08 m (4×4 block mean, ≥75 % valid), 800 × 1441</span>
+   <span>Projection</span><span>Equirectangular, centre lon 78.15°E, std. parallel 15°</span>
+   <span>Datum / radius</span><span>Mars sphere, 3394.84 km (planetocentric, east positive)</span>
+   <span>Elevation range</span><span>−2740.4 to −2152.6 m</span>
+   <span>Footprint</span><span>18.59–18.79°N, 78.09–78.20°E</span>
+   <span>Ortho</span><span>ESP_033651_1990_IRB_D_01_ORTHO (false colour: IR-Red-Blue), 2× downsampled</span>
+   <span>Valid DTM coverage</span><span>≈ 76 % of the rectangle (tilted strip)</span>
+  </div></div>
+  <div class="card"><h3>Methods</h3>
+   <div class="small" style="font-size:12.5px;line-height:1.55">
+   <b>Route:</b> A* on an 8-connected grid; Dijkstra is the baseline. Edge cost = 3-D distance × (1 + k·(s/limit)² + kr·(rough/limit)²), s = |Δz| / horizontal step. Moves with s above the limit, cells rougher than the roughness limit, and any no-data cell are excluded. The A* heuristic is straight-line distance (never overestimates, since the multiplier ≥ 1), so A* and Dijkstra return equal cost.<br><br>
+   <b>Roughness:</b> RMS of the 2 m DTM elevation minus its ~8 m Gaussian smooth, averaged over each 8 m cell. It flags blocky or broken terrain, not individual rocks.<br><br>
+   <b>Slope layer:</b> central-difference gradient of the 8 m DTM (display); the planner uses move-to-move slopes.<br><br>
+   <b>Oxygen estimate:</b> metabolic watts × time ÷ 20.1 kJ/L. Assumption-driven.<br><br>
+   <b>Limitations:</b> 8 m smoothing hides rocks and ripples; no boulder, sand-softness or traction model; no thermal, dust or comms model; thresholds shown are from the team's reference document and should be re-checked against NASA-STD-3001 before use.<br><br>
+   <b>Attribution:</b> Terrain and imagery: NASA/JPL/University of Arizona.
+   </div></div>
+ </div>
+</section>
+</main>
+
+<script>
+/* ===================== DATA ===================== */
+const DTM_B64="__DTM_B64__";
+const ORTHO_B64="__ORTHO_B64__";
+const ROUGH_B64="__ROUGH_B64__";
+const W=800,H=1441,F=4,PX=2.0192195414267,RES=PX*F,ZMIN=-2740.5;
+const R_MARS=3394839.8133163,LON0=78.15,LAT1=15*Math.PI/180,X0=-3446.807757215175,Y0=1113298.7133851524;
+const N=W*H;
+const Z=new Float32Array(N);
+(function(){const bin=atob(DTM_B64),u8=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)u8[i]=bin.charCodeAt(i);
+ const u=new Uint16Array(u8.buffer);for(let i=0;i<N;i++)Z[i]=u[i]===65535?NaN:u[i]/100+ZMIN;})();
+const ROUGH=new Float32Array(N);
+(function(){const bin=atob(ROUGH_B64);for(let i=0;i<N;i++){const v=bin.charCodeAt(i);ROUGH[i]=v===255?NaN:v/100;}})();
+const valid=i=>Z[i]===Z[i];
+function rcToLonLat(r,c){const x=X0+(c*F+F/2)*PX,y=Y0-(r*F+F/2)*PX;return[LON0+x/(R_MARS*Math.cos(LAT1))*180/Math.PI,y/R_MARS*180/Math.PI];}
+const fmtLL=(r,c)=>{const[a,b]=rcToLonLat(r,c);return b.toFixed(4)+"°N, "+a.toFixed(4)+"°E";};
+
+/* ===================== DERIVED LAYERS ===================== */
+const SLOPE=new Float32Array(N),HS=new Float32Array(N);
+(function(){const az=315*Math.PI/180,alt=45*Math.PI/180;
+ for(let r=0;r<H;r++)for(let c=0;c<W;c++){const i=r*W+c;if(!valid(i)){SLOPE[i]=NaN;HS[i]=0;continue;}
+  const z0=Z[i],g=(j)=>valid(j)?Z[j]:z0;
+  const gx=(g(c<W-1?i+1:i)-g(c>0?i-1:i))/(RES*((c>0&&c<W-1)?2:1)),gy=(g(r<H-1?i+W:i)-g(r>0?i-W:i))/(RES*((r>0&&r<H-1)?2:1));
+  const m=Math.hypot(gx,gy);SLOPE[i]=m*100;const sl=Math.atan(m),asp=Math.atan2(-gx,gy);
+  HS[i]=Math.max(0,Math.min(1,Math.sin(alt)*Math.cos(sl)+Math.cos(alt)*Math.sin(sl)*Math.cos(az-asp)));}})();
+let zLo=Infinity,zHi=-Infinity;for(let i=0;i<N;i++)if(valid(i)){if(Z[i]<zLo)zLo=Z[i];if(Z[i]>zHi)zHi=Z[i];}
+
+function hsv(h,s,v){const f=(n,k=(n+h*6)%6)=>v-v*s*Math.max(Math.min(k,4-k,1),0);return[f(5)*255,f(3)*255,f(1)*255];}
+function makeLayer(fn){const cv=document.createElement("canvas");cv.width=W;cv.height=H;const x=cv.getContext("2d"),im=x.createImageData(W,H);
+ for(let i=0;i<N;i++){const o=i*4;if(!valid(i)){im.data[o+3]=0;continue;}const p=fn(i);im.data[o]=p[0];im.data[o+1]=p[1];im.data[o+2]=p[2];im.data[o+3]=255;}
+ x.putImageData(im,0,0);return cv;}
+const L_hill=makeLayer(i=>{const v=40+215*HS[i];return[v,v,v];});
+const L_elev=makeLayer(i=>{const t=(Z[i]-zLo)/(zHi-zLo);return hsv(0.72*(1-t),0.85,0.35+0.65*HS[i]);});
+const L_rough=makeLayer(i=>{const t=Math.min(ROUGH[i]/1.2,1);return isNaN(t)?[0,0,0]:hsv(0.66*(1-t),0.9,0.3+0.7*(0.4+0.6*HS[i]));});
+const L_slope=makeLayer(i=>{const t=Math.min(SLOPE[i]/50,1);return hsv(0.66*(1-t),0.9,0.3+0.7*(0.4+0.6*HS[i]));});
+let L_excl=null;
+function buildExcl(limPct,rmax){const cv=document.createElement("canvas");cv.width=W;cv.height=H;const x=cv.getContext("2d"),im=x.createImageData(W,H);
+ for(let r=0;r<H;r++)for(let c=0;c<W;c++){const i=r*W+c;if(valid(i)&&(SLOPE[i]>limPct||!(ROUGH[i]<=rmax))&&((r+c)&3)<2){const o=i*4;im.data[o]=239;im.data[o+1]=68;im.data[o+2]=68;im.data[o+3]=210;}}
+ x.putImageData(im,0,0);L_excl=cv;}
+const L_no=(function(){const cv=document.createElement("canvas");cv.width=W;cv.height=H;const x=cv.getContext("2d"),im=x.createImageData(W,H);
+ for(let r=0;r<H;r++)for(let c=0;c<W;c++){const i=r*W+c;const o=i*4;if(!valid(i)){if(((r+c)&7)<1){im.data[o]=148;im.data[o+1]=163;im.data[o+2]=184;im.data[o+3]=120;}else{im.data[o+3]=0;}}}
+ x.putImageData(im,0,0);return cv;})();
+const orthoImg=new Image();let orthoOK=false,orthoCv=null;
+orthoImg.onload=()=>{const c=document.createElement("canvas");c.width=orthoImg.width;c.height=orthoImg.height;const x=c.getContext("2d");x.drawImage(orthoImg,0,0);
+  const im=x.getImageData(0,0,c.width,c.height),d=im.data;for(let p=0;p<d.length;p+=4)if(d[p]+d[p+1]+d[p+2]<14)d[p+3]=0;x.putImageData(im,0,0);orthoCv=c;orthoOK=true;draw();};
+orthoImg.src="data:image/jpeg;base64,"+ORTHO_B64;
+
+/* ===================== ROUTING (port of pathfinder/routing.py) ===================== */
+const NB=[[-1,0,1],[1,0,1],[0,-1,1],[0,1,1],[-1,-1,Math.SQRT2],[-1,1,Math.SQRT2],[1,-1,Math.SQRT2],[1,1,Math.SQRT2]];
+function search(start,goal,limPct,k,useH,rmax,kr){
+  const g=new Float32Array(N).fill(Infinity),came=new Int32Array(N).fill(-1),closed=new Uint8Array(N);
+  const gr=(goal/W)|0,gc=goal%W,hf=i=>useH?RES*Math.hypot(((i/W)|0)-gr,(i%W)-gc):0;
+  // binary heap of [f,idx]
+  let hf_=[],hi_=[];
+  const push=(f,i)=>{let n=hf_.length;hf_.push(f);hi_.push(i);while(n>0){const p=(n-1)>>1;if(hf_[p]<=f)break;hf_[n]=hf_[p];hi_[n]=hi_[p];n=p;}hf_[n]=f;hi_[n]=i;};
+  const pop=()=>{const f0=hf_[0],i0=hi_[0],f=hf_.pop(),i=hi_.pop(),L=hf_.length;if(L>0){let n=0;for(;;){let c=2*n+1;if(c>=L)break;if(c+1<L&&hf_[c+1]<hf_[c])c++;if(hf_[c]>=f)break;hf_[n]=hf_[c];hi_[n]=hi_[c];n=c;}hf_[n]=f;hi_[n]=i;}return[f0,i0];};
+  g[start]=0;push(hf(start),start);let expanded=0;
+  while(hf_.length){const[,cur]=pop();if(closed[cur])continue;closed[cur]=1;expanded++;
+    if(cur===goal){const path=[cur];let p=cur;while(came[p]>=0){p=came[p];path.push(p);}return{path:path.reverse(),cost:g[goal],expanded};}
+    const r=(cur/W)|0,c=cur%W,z0=Z[cur],q0=ROUGH[cur];
+    for(let q=0;q<8;q++){const nr=r+NB[q][0],nc=c+NB[q][1];if(nr<0||nr>=H||nc<0||nc>=W)continue;const ni=nr*W+nc;if(closed[ni]||!valid(ni))continue;
+      const hd=RES*NB[q][2],dz=Z[ni]-z0,s=Math.abs(dz)/hd*100;if(s>limPct)continue;
+      const q1=ROUGH[ni];if(!(q0<=rmax)||!(q1<=rmax))continue;const rr=.5*(q0+q1);
+      const ng=g[cur]+Math.hypot(hd,dz)*(1+k*(s/limPct)*(s/limPct)+kr*(rr/rmax)*(rr/rmax));
+      if(ng<g[ni]){g[ni]=ng;came[ni]=cur;push(ng+hf(ni),ni);}}}
+  return{path:null,cost:Infinity,expanded};}
+function metrics(path){const d=[0],e=[],sl=[];let gain=0,loss=0,d3=0;
+  for(let a=0;a<path.length;a++){e.push(Z[path[a]]);if(a>0){const p=path[a-1],q=path[a];const h=RES*Math.hypot(((p/W)|0)-((q/W)|0),(p%W)-(q%W)),dz=Z[q]-Z[p];
+    d.push(d[a-1]+h);d3+=Math.hypot(h,dz);if(dz>0)gain+=dz;else loss-=dz;sl.push(Math.abs(dz)/h*100);}}
+  const rg=path.map(i=>ROUGH[i]);
+  return{rMean:rg.reduce((a,b)=>a+b,0)/rg.length,rMax:Math.max(...rg),dist:d[d.length-1],d3,gain,loss,maxS:Math.max(0,...sl),meanS:sl.reduce((a,b)=>a+b,0)/Math.max(1,sl.length),steep:sl.filter(s=>s>25).length,sl,d,e};}
+
+/* ===================== STATE & VIEW ===================== */
+const DEMO_START=41*W+473,DEMO_GOAL=1400*W+335;
+let start=DEMO_START,goal=DEMO_GOAL,route=null,M=null,mode="auto",nextClick="start",hoverD=null;
+let view={s:1,tx:0,ty:0};
+const cv=document.getElementById("map"),ctx=cv.getContext("2d");
+function fit(){const w=cv.clientWidth,h=cv.clientHeight;cv.width=w*devicePixelRatio;cv.height=h*devicePixelRatio;
+  const s=Math.min(w/W,h/H)*0.98;view={s,tx:(w-W*s)/2,ty:(h-H*s)/2};draw();}
+const base=()=>document.querySelector("input[name=base]:checked").value;
+function toScreen(c,r){return[view.tx+c*view.s,view.ty+r*view.s];}
+function draw(){const dpr=devicePixelRatio,w=cv.clientWidth,h=cv.clientHeight;ctx.setTransform(dpr,0,0,dpr,0,0);ctx.fillStyle="#000";ctx.fillRect(0,0,w,h);
+  ctx.imageSmoothingEnabled=view.s<4;ctx.save();ctx.translate(view.tx,view.ty);ctx.scale(view.s,view.s);
+  const b=base();
+  if(b==="ortho"){ctx.globalAlpha=.75;ctx.drawImage(L_hill,0,0);ctx.globalAlpha=1;if(orthoOK)ctx.drawImage(orthoCv,0,0,W,H);}
+  else ctx.drawImage(b==="hill"?L_hill:b==="elev"?L_elev:b==="rough"?L_rough:L_slope,0,0);
+  if(document.getElementById("ovExcl").checked&&L_excl)ctx.drawImage(L_excl,0,0);
+  if(document.getElementById("ovNo").checked)ctx.drawImage(L_no,0,0);
+  ctx.restore();
+  if(route&&document.getElementById("ovRoute").checked){ctx.lineJoin="round";ctx.lineWidth=5;ctx.strokeStyle="#000a";ctx.beginPath();
+    route.forEach((i,a)=>{const[x,y]=toScreen((i%W)+.5,((i/W)|0)+.5);a?ctx.lineTo(x,y):ctx.moveTo(x,y);});ctx.stroke();
+    ctx.lineWidth=2.5;ctx.strokeStyle="#38bdf8";ctx.stroke();}
+  const mark=(i,col,t)=>{if(i==null)return;const[x,y]=toScreen((i%W)+.5,((i/W)|0)+.5);ctx.fillStyle=col;ctx.strokeStyle="#fff";ctx.lineWidth=2;ctx.beginPath();ctx.arc(x,y,9,0,7);ctx.fill();ctx.stroke();ctx.fillStyle="#000";ctx.font="bold 11px sans-serif";ctx.textAlign="center";ctx.textBaseline="middle";ctx.fillText(t,x,y+.5);};
+  mark(start,"#22c55e","S");mark(goal,"#ef4444","D");
+  if(hoverD!=null&&M){let a=0;while(a<M.d.length-1&&M.d[a]<hoverD)a++;const i=route[a],[x,y]=toScreen((i%W)+.5,((i/W)|0)+.5);ctx.strokeStyle="#fff";ctx.lineWidth=2;ctx.beginPath();ctx.arc(x,y,6,0,7);ctx.stroke();}
+  // scale bar
+  const mpp=RES/view.s,nice=[10,20,50,100,200,500,1000,2000,5000],tgt=mpp*110;let len=nice[0];for(const n of nice)if(n<=tgt)len=n;
+  document.getElementById("scaleBar").style.width=(len/mpp)+"px";document.getElementById("scaleTxt").textContent=len>=1000?len/1000+" km":len+" m";
+  legend();}
+function legend(){const b=base(),el=document.getElementById("legend");let h="";
+  if(b==="elev")h=`<b>Elevation (m)</b><div class="bar" style="background:linear-gradient(90deg,hsl(259,85%,60%),hsl(180,85%,50%),hsl(100,85%,50%),hsl(50,90%,55%),hsl(0,85%,55%))"></div><div style="display:flex;justify-content:space-between"><span>${zLo.toFixed(0)}</span><span>${zHi.toFixed(0)}</span></div>`;
+  else if(b==="slope")h=`<b>Slope (%)</b><div class="bar" style="background:linear-gradient(90deg,hsl(237,90%,50%),hsl(130,90%,45%),hsl(60,90%,50%),hsl(0,90%,50%))"></div><div style="display:flex;justify-content:space-between"><span>0</span><span>25</span><span>50+</span></div>`;
+  else if(b==="rough")h=`<b>Roughness (m, RMS)</b><div class="bar" style="background:linear-gradient(90deg,hsl(237,90%,50%),hsl(130,90%,45%),hsl(60,90%,50%),hsl(0,90%,50%))"></div><div style="display:flex;justify-content:space-between"><span>0</span><span>0.6</span><span>1.2+ m</span></div><div class="small">High = blocky / broken terrain (proxy for rocks; individual boulders are not resolved).</div>`;
+  else if(b==="ortho")h=`<b>False colour</b><div class="small">Infrared-Red-Blue composite; colours are not natural. The ortho covers only part of the DTM footprint; grey hillshade fills the rest.</div>`;
+  else h=`<b>Hillshade</b><div class="small">Sun from NW, 45° elevation.</div>`;
+  h+=`<div class="small" style="margin-top:4px">▨ red hatch = over slope/roughness limit<br>· dotted = no data (unknown)<br>— blue line = computed route</div>`;el.innerHTML=h;}
+function showMsg(t){const m=document.getElementById("msg");m.textContent=t;m.style.display="block";clearTimeout(showMsg.t);showMsg.t=setTimeout(()=>m.style.display="none",2800);}
+function cellAt(ev){const rc=cv.getBoundingClientRect(),x=(ev.clientX-rc.left-view.tx)/view.s,y=(ev.clientY-rc.top-view.ty)/view.s;return[Math.floor(x),Math.floor(y)];}
+let drag=null;
+cv.addEventListener("pointerdown",e=>{cv.setPointerCapture(e.pointerId);drag={x:e.clientX,y:e.clientY,tx:view.tx,ty:view.ty,moved:false};});
+cv.addEventListener("pointermove",e=>{if(drag){const dx=e.clientX-drag.x,dy=e.clientY-drag.y;if(Math.abs(dx)+Math.abs(dy)>4)drag.moved=true;if(drag.moved){view.tx=drag.tx+dx;view.ty=drag.ty+dy;draw();}}
+  const[c,r]=cellAt(e),ro=document.getElementById("readout");
+  if(c>=0&&c<W&&r>=0&&r<H){const i=r*W+c;ro.textContent=valid(i)?`${fmtLL(r,c)} · elev ${Z[i].toFixed(1)} m · slope ${SLOPE[i].toFixed(0)} %`:`${fmtLL(r,c)} · NO DATA`;}else ro.textContent="outside dataset";});
+cv.addEventListener("pointerup",e=>{const wasDrag=drag&&drag.moved;drag=null;if(wasDrag)return;const[c,r]=cellAt(e);if(c<0||c>=W||r<0||r>=H)return;const i=r*W+c;
+  if(!valid(i)){showMsg("No elevation data there: it can't be a start or destination (unknown ≠ safe).");return;}
+  if(mode==="start"||(mode==="auto"&&nextClick==="start")){start=i;nextClick="goal";mode="auto";}else{goal=i;nextClick="start";mode="auto";}
+  document.getElementById("bStart").classList.remove("on");document.getElementById("bGoal").classList.remove("on");plan();});
+cv.addEventListener("wheel",e=>{e.preventDefault();const rc=cv.getBoundingClientRect(),mx=e.clientX-rc.left,my=e.clientY-rc.top,f=Math.exp(-e.deltaY*0.0015),ns=Math.min(30,Math.max(0.2,view.s*f)),k=ns/view.s;
+  view.tx=mx-(mx-view.tx)*k;view.ty=my-(my-view.ty)*k;view.s=ns;draw();},{passive:false});
+new ResizeObserver(fit).observe(document.getElementById("mapwrap"));
+document.querySelectorAll("#layers input").forEach(el=>el.addEventListener("change",draw));
+
+/* ===================== PLANNING UI ===================== */
+const $=id=>document.getElementById(id);
+function plan(){const lim=+$("lim").value,k=+$("kk").value,rmax=+$("rmax").value,kr=+$("kr").value;$("limv").textContent=lim+" % (≈"+(Math.atan(lim/100)*180/Math.PI).toFixed(0)+"°)";$("kkv").textContent=k;$("rmaxv").textContent=rmax.toFixed(2)+" m";$("krv").textContent=kr;
+  buildExcl(lim,rmax);$("o-start").textContent=fmtLL((start/W)|0,start%W);$("o-goal").textContent=fmtLL((goal/W)|0,goal%W);
+  const t0=performance.now();const res=search(start,goal,lim,k,true,rmax,kr);const ms=performance.now()-t0;
+  if(!res.path){route=null;M=null;$("o-status").innerHTML='<span class="chip s3">✖ NO ROUTE</span>';
+    ["r-dist","r-d3","r-gain","r-loss","r-max","r-mean","r-steep","r-rough","r-time"].forEach(x=>$(x).textContent="–");$("r-search").textContent=`unreachable under limit (${res.expanded.toLocaleString()} cells searched)`;}
+  else{route=res.path;M=metrics(route);$("o-status").innerHTML='<span class="chip s0">✔ ROUTE FOUND</span>';
+    $("r-dist").textContent=(M.dist/1000).toFixed(2)+" km";$("r-d3").textContent=(M.d3/1000).toFixed(2)+" km";$("r-gain").textContent="+"+M.gain.toFixed(0)+" m";$("r-loss").textContent="−"+M.loss.toFixed(0)+" m";
+    $("r-max").textContent=M.maxS.toFixed(1)+" %";$("r-mean").textContent=M.meanS.toFixed(1)+" %";$("r-steep").textContent=M.steep+" of "+M.sl.length+" moves";$("r-rough").textContent=M.rMean.toFixed(2)+" / "+M.rMax.toFixed(2)+" m";
+    $("r-search").textContent=`A*: ${res.expanded.toLocaleString()} cells, ${ms.toFixed(0)} ms`;}
+  timeAndO2();profile();draw();alerts();}
+function timeAndO2(){if(!M){$("r-time").textContent="–";["e-out","e-ret","e-ext","e-tot","e-res","e-co2"].forEach(x=>$(x).textContent="–");E=null;return;}
+  const sp=+$("speed").value,hrs=M.dist/1000/sp;$("r-time").textContent=Math.floor(hrs)+" h "+Math.round((hrs%1)*60)+" min one way";
+  const m0=+$("m0").value,mup=+$("mup").value,stop=+$("stop").value,cont=+$("cont").value/100,av=+$("o2av").value,rq=+$("rq").value;
+  const leg=(d,e)=>{let L=0;for(let a=1;a<d.length;a++){const dd=d[a]-d[a-1],gr=(e[a]-e[a-1])/dd*100,Mw=m0+mup*Math.max(gr,0),tmin=dd/(sp*1000/60);L+=Mw*tmin*60/20100;}return L;};
+  const out=leg(M.d,M.e),ret=leg(M.d,M.e.slice().reverse()),ext=(stop*200*60/20100)+cont*(out+ret),tot=out+ret+ext,res=(av-tot)/av*100;
+  E={tot,res,av,co2:rq*tot};$("e-out").textContent=out.toFixed(0)+" L";$("e-ret").textContent=ret.toFixed(0)+" L";$("e-ext").textContent=ext.toFixed(0)+" L";
+  $("e-tot").textContent=tot.toFixed(0)+" L (≈"+(tot*1.429/1000).toFixed(2)+" kg)";$("e-co2").textContent=(rq*tot).toFixed(0)+" L";
+  const sv=band(CFG.o2Reserve,res);$("e-res").innerHTML=`${res.toFixed(0)} % <span class="chip s${sv}">${ICON[sv]} ${LBL[sv]}</span>`;}
+let E=null;
+function profile(){const c=$("prof"),dpr=devicePixelRatio,w=c.clientWidth,h=c.clientHeight;c.width=w*dpr;c.height=h*dpr;const x=c.getContext("2d");x.setTransform(dpr,0,0,dpr,0,0);x.clearRect(0,0,w,h);
+  if(!M){x.fillStyle="#8c9bb8";x.fillText("No route",10,20);return;}
+  const pl=46,pr=10,pt=8,pb=24,ymin=Math.min(...M.e),ymax=Math.max(...M.e),pad=(ymax-ymin)*.1+1,y0=ymin-pad,y1=ymax+pad,D=M.d[M.d.length-1];
+  const X=d=>pl+d/D*(w-pl-pr),Y=z=>pt+(1-(z-y0)/(y1-y0))*(h-pt-pb);
+  x.strokeStyle="#22304d";x.fillStyle="#8c9bb8";x.font="11px sans-serif";x.lineWidth=1;
+  for(let t=0;t<=4;t++){const z=y0+(y1-y0)*t/4,yy=Y(z);x.beginPath();x.moveTo(pl,yy);x.lineTo(w-pr,yy);x.stroke();x.textAlign="right";x.fillText(z.toFixed(0)+" m",pl-4,yy+3);}
+  x.textAlign="center";for(let t=0;t<=5;t++){const d=D*t/5;x.fillText((d/1000).toFixed(1)+" km",X(d),h-8);}
+  x.lineWidth=3;for(let a=1;a<M.d.length;a++){const s=M.sl[a-1];x.strokeStyle=s<10?"#22c55e":s<20?"#facc15":"#fb923c";x.beginPath();x.moveTo(X(M.d[a-1]),Y(M.e[a-1]));x.lineTo(X(M.d[a]),Y(M.e[a]));x.stroke();}
+  if(hoverD!=null){x.strokeStyle="#fff";x.lineWidth=1;x.beginPath();x.moveTo(X(hoverD),pt);x.lineTo(X(hoverD),h-pb);x.stroke();}
+  c._m={pl,pr,D,w};}
+$("prof").addEventListener("pointermove",e=>{const c=$("prof");if(!M||!c._m)return;const rc=c.getBoundingClientRect(),{pl,pr,D,w}=c._m,d=Math.max(0,Math.min(D,(e.clientX-rc.left-pl)/(w-pl-pr)*D));hoverD=d;
+  let a=1;while(a<M.d.length-1&&M.d[a]<d)a++;profile();draw();c.title=`${(d/1000).toFixed(2)} km · ${M.e[a].toFixed(1)} m · slope ${M.sl[a-1].toFixed(1)} %`;});
+$("prof").addEventListener("pointerleave",()=>{hoverD=null;profile();draw();});
+["lim","kk","rmax","kr"].forEach(id=>$(id).addEventListener("input",()=>{clearTimeout(plan.t);plan.t=setTimeout(plan,120);}));
+["speed","m0","mup","stop","cont","o2av","rq"].forEach(id=>$(id).addEventListener("input",()=>{timeAndO2();alerts();}));
+$("bStart").onclick=()=>{mode="start";$("bStart").classList.add("on");$("bGoal").classList.remove("on");showMsg("Click the map to set the start.");};
+$("bGoal").onclick=()=>{mode="goal";$("bGoal").classList.add("on");$("bStart").classList.remove("on");showMsg("Click the map to set the destination.");};
+$("bDemo").onclick=()=>{start=DEMO_START;goal=DEMO_GOAL;nextClick="start";mode="auto";plan();};
+$("bCmp").onclick=()=>{const lim=+$("lim").value,k=+$("kk").value,rmax=+$("rmax").value,kr=+$("kr").value;$("cmpOut").textContent="Running…";setTimeout(()=>{
+  let t=performance.now();const a=search(start,goal,lim,k,true,rmax,kr),ta=performance.now()-t;t=performance.now();const d=search(start,goal,lim,k,false,rmax,kr),td=performance.now()-t;
+  $("cmpOut").innerHTML=a.path?`A*: cost ${a.cost.toFixed(1)}, ${a.expanded.toLocaleString()} cells, ${ta.toFixed(0)} ms<br>Dijkstra: cost ${d.cost.toFixed(1)}, ${d.expanded.toLocaleString()} cells, ${td.toFixed(0)} ms<br><b>${Math.abs(a.cost-d.cost)<1e-3?"✔ Same optimal cost":"✖ Costs differ"}</b>; A* searched ${(100-100*a.expanded/d.expanded).toFixed(0)} % fewer cells.`:"No route to compare.";},30);};
+
+/* ===================== THRESHOLDS & MODULES ===================== */
+const ICON=["✔","▲","◆","✖"],LBL=["NORMAL","WATCH","ALERT","CRITICAL"];
+const DEFAULT_CFG={
+ ppO2:{label:"Inspired O₂ partial pressure",unit:"mmHg",src:"off",note:"NASA-STD-3001 Vol 2 Rev F (team doc). Not an O₂ percentage. >155 mmHg is not defined by the doc; shown as WATCH (proposed).",bands:[{hi:122,sev:3},{lo:122,hi:127,sev:2},{lo:127,hi:145,sev:1},{lo:145,hi:155.01,sev:0},{lo:155.01,sev:1}]},
+ co2:{label:"CO₂ partial pressure (1-h avg)",unit:"mmHg",src:"off",note:"NASA habitat requirement ≤ 3 mmHg. No official yellow/orange: configure if wanted.",bands:[{hi:3.0001,sev:0},{lo:3.0001,sev:3}]},
+ cabinP:{label:"Cabin pressure",unit:"psia",src:"off",note:"Indefinite exposure range: above 5 and up to 15 psia.",bands:[{hi:5.0001,sev:3},{lo:5.0001,hi:15.0001,sev:0},{lo:15.0001,sev:3}]},
+ cabinT:{label:"Cabin temperature",unit:"°C",src:"prop",note:"Proposed operational setting (dashboard mockup limit 18–22 °C).",bands:[{hi:10,sev:3},{lo:10,hi:16,sev:2},{lo:16,hi:18,sev:1},{lo:18,hi:22.01,sev:0},{lo:22.01,hi:26,sev:1},{lo:26,hi:30,sev:2},{lo:30,sev:3}]},
+ water:{label:"Water remaining",unit:"%",src:"prop",note:"Proposed dashboard setting, not NASA.",bands:[{hi:10,sev:3},{lo:10,hi:25,sev:2},{lo:25,hi:50.01,sev:1},{lo:50.01,sev:0}]},
+ o2Supply:{label:"Oxygen supply (stored)",unit:"%",src:"prop",note:"Proposed software alert, not a NASA safety threshold.",bands:[{hi:10,sev:3},{lo:10,hi:25,sev:2},{lo:25,hi:50.01,sev:1},{lo:50.01,sev:0}]},
+ o2Reserve:{label:"Projected O₂ reserve after round trip",unit:"%",src:"prop",note:"Proposed software alert; driven by the route estimator.",bands:[{hi:10,sev:3},{lo:10,hi:25,sev:2},{lo:25,hi:50.01,sev:1},{lo:50.01,sev:0}]},
+ hr:{label:"Heart rate",unit:"bpm",src:"prop",note:"Proposed general adult reference; confirm clinically.",bands:[{hi:40,sev:3},{lo:40,hi:50,sev:2},{lo:50,hi:60,sev:1},{lo:60,hi:100.01,sev:0},{lo:100.01,hi:120,sev:1},{lo:120,hi:140,sev:2},{lo:140,sev:3}]},
+ rr:{label:"Respiratory rate",unit:"br/min",src:"prop",note:"Proposed general adult reference; confirm clinically.",bands:[{hi:8,sev:3},{lo:8,hi:12,sev:1},{lo:12,hi:20.01,sev:0},{lo:20.01,hi:25,sev:1},{lo:25,hi:30,sev:2},{lo:30,sev:3}]},
+ temp:{label:"Body temperature",unit:"°C",src:"prop",note:"Proposed general adult reference; confirm clinically.",bands:[{hi:35,sev:3},{lo:35,hi:36.1,sev:1},{lo:36.1,hi:37.51,sev:0},{lo:37.51,hi:38.5,sev:1},{lo:38.5,hi:39.5,sev:2},{lo:39.5,sev:3}]},
+ spo2:{label:"Blood oxygen saturation (SpO₂)",unit:"%",src:"prop",note:"Proposed general adult reference; confirm clinically.",bands:[{hi:88,sev:3},{lo:88,hi:90,sev:2},{lo:90,hi:95,sev:1},{lo:95,sev:0}]},
+ sbp:{label:"Systolic blood pressure",unit:"mmHg",src:"prop",note:"Proposed general adult reference; confirm clinically.",bands:[{hi:80,sev:3},{lo:80,hi:90,sev:2},{lo:90,hi:100,sev:1},{lo:100,hi:130.01,sev:0},{lo:130.01,hi:160,sev:1},{lo:160,hi:180,sev:2},{lo:180,sev:3}]}
+};
+let CFG=JSON.parse(JSON.stringify(DEFAULT_CFG));
+function band(p,v){for(const b of p.bands){if((b.lo==null||v>=b.lo)&&(b.hi==null||v<b.hi))return b.sev;}return 1;}
+function rangeTxt(p){const g=p.bands.filter(b=>b.sev===0);if(!g.length)return"";const lo=Math.min(...g.map(b=>b.lo==null?-Infinity:b.lo)),hi=Math.max(...g.map(b=>b.hi==null?Infinity:b.hi));
+  const f=x=>+(x).toFixed(1);return lo===-Infinity?`normal ≤ ${f(hi)}`:hi===Infinity?`normal ≥ ${f(lo)}`:`normal ${f(lo)}–${f(Math.round(hi*10-.1)/10)}`;}
+const LIFE={ppO2:150,co2:2.1,cabinP:14.7,cabinT:21,water:62,o2Supply:80};
+const SCEN={nominal:{ppO2:150,co2:2.1,cabinP:14.7,cabinT:21,water:62,o2Supply:80},co2:{ppO2:149,co2:4.2,cabinP:14.7,cabinT:23.5,water:60,o2Supply:78},
+ leak:{ppO2:124,co2:2.4,cabinP:9.8,cabinT:19,water:60,o2Supply:44},water:{ppO2:150,co2:2.2,cabinP:14.7,cabinT:24,water:18,o2Supply:75}};
+const STEP={ppO2:1,co2:.1,cabinP:.1,cabinT:.5,water:1,o2Supply:1};
+function renderLife(){let h="";for(const k of Object.keys(LIFE)){const p=CFG[k],v=LIFE[k],s=band(p,v);
+  h+=`<div class="card"><div class="small">${p.label} <span class="tag ${p.src==="off"?"off":"prop"}">${p.src==="off"?"NASA ref":"proposed"}</span></div>
+  <div class="val">${v}<small> ${p.unit}</small></div><span class="chip s${s}">${ICON[s]} ${LBL[s]}</span> <span class="small">${rangeTxt(p)}</span>
+  <div class="row"><input type="number" step="${STEP[k]}" value="${v}" data-k="${k}"></div><div class="small">${p.note}</div></div>`;}
+  $("lifeCards").innerHTML=h;$("lifeCards").querySelectorAll("input").forEach(el=>el.addEventListener("change",()=>{LIFE[el.dataset.k]=+el.value;renderLife();alerts();}));}
+document.querySelectorAll("[data-sc]").forEach(b=>b.onclick=()=>{Object.assign(LIFE,SCEN[b.dataset.sc]);renderLife();alerts();});
+
+const VIT={hr:72,rr:16,temp:36.6,spo2:98,sbp:118};
+function renderVitals(){let h='<div class="small">Crew member A (fictional demo profile)</div><table>';
+  for(const k of Object.keys(VIT)){const p=CFG[k],s=band(p,VIT[k]);h+=`<tr><td>${p.label}</td><td><input type="number" step="${k==="temp"?.1:1}" value="${VIT[k]}" data-k="${k}"> ${p.unit}</td><td><span class="chip s${s}">${ICON[s]} ${LBL[s]}</span></td></tr>`;}
+  $("vitals").innerHTML=h+"</table>";$("vitals").querySelectorAll("input").forEach(el=>el.addEventListener("change",()=>{VIT[el.dataset.k]=+el.value;renderVitals();alerts();}));}
+
+const TODAY=new Date();
+const MEDS=[
+ {n:"Amoxicillin",cls:"Antibiotic",form:"500 mg capsule",batch:"AMX-2025-047",exp:"2026-12-31",stock:120,min:100,store:"15–25 °C, dry",wt:"0.9 g/unit",recalled:false},
+ {n:"Ibuprofen",cls:"NSAID",form:"400 mg tablet",batch:"IBU-2026-112",exp:"2027-08-31",stock:40,min:60,store:"15–25 °C",wt:"0.5 g/unit",recalled:false},
+ {n:"Oral rehydration salts",cls:"Electrolyte",form:"sachet",batch:"ORS-2026-009",exp:"2027-02-28",stock:18,min:30,store:"≤ 25 °C, dry",wt:"20 g/unit",recalled:false},
+ {n:"Epinephrine",cls:"Emergency",form:"0.3 mg auto-injector",batch:"EPI-2026-021",exp:"2027-03-31",stock:6,min:4,store:"20–25 °C, protect from light",wt:"60 g/unit",recalled:false},
+ {n:"Loperamide",cls:"Anti-diarrhoeal",form:"2 mg capsule",batch:"LOP-2025-330",exp:"2026-11-30",stock:30,min:20,store:"15–25 °C",wt:"0.3 g/unit",recalled:false}];
+function medFlags(m){const f=[],d=(new Date(m.exp+"T23:59:59")-TODAY)/864e5;
+  if(m.recalled)f.push([3,"Recalled batch "+m.batch,"Quarantine the batch and verify the recall notice."]);
+  if(d<0)f.push([3,m.n+" expired","Remove from use per inventory procedure."]);else if(d<=90)f.push([1,m.n+" expires in "+Math.ceil(d)+" days","Use first (FEFO) and plan replacement."]);
+  if(m.stock<m.min)f.push([m.stock<=m.min/2?2:1,m.n+" below minimum stock ("+m.stock+" < "+m.min+")","Review resupply or rationing plan."]);return f;}
+function renderMeds(){const rows=MEDS.slice().sort((a,b)=>a.exp.localeCompare(b.exp));
+  $("medTbl").innerHTML="<tr><th>Medication</th><th>Class · form</th><th>Batch</th><th>Expiry</th><th>Stock / min</th><th>Storage</th><th>Wt</th><th>Status</th></tr>"+rows.map(m=>{const f=medFlags(m),s=f.length?Math.max(...f.map(x=>x[0])):0;
+  return`<tr><td><b>${m.n}</b></td><td>${m.cls} · ${m.form}</td><td>${m.batch}</td><td>${m.exp}</td><td>${m.stock} / ${m.min}</td><td>${m.store}</td><td>${m.wt}</td><td><span class="chip s${s}">${ICON[s]} ${LBL[s]}</span></td></tr>`;}).join("");}
+
+/* ===================== ALERTS ===================== */
+function alerts(){const A=[];
+  if(!route)A.push([3,"Route","No route under current limits","Destination unreachable with the slope limit and no-data exclusions.","Raise the slope limit or pick another destination."]);
+  if(M&&E){const s=band(CFG.o2Reserve,E.res);if(s>0)A.push([s,"Route estimator",`Projected O₂ reserve ${E.res.toFixed(0)} % after round trip`,`Needs ≈ ${E.tot.toFixed(0)} L of ${E.av} L (hypothetical inputs).`,"Shorten the route, reduce stops, or increase the assumed supply."]);}
+  for(const k of Object.keys(LIFE)){const s=band(CFG[k],LIFE[k]);if(s>0)A.push([s,"Life support",`${CFG[k].label}: ${LIFE[k]} ${CFG[k].unit}`,CFG[k].note,"Verify the sensor reading, then follow the mission procedure."]);}
+  for(const k of Object.keys(VIT)){const s=band(CFG[k],VIT[k]);if(s>0)A.push([s,"Crew health",`${CFG[k].label}: ${VIT[k]} ${CFG[k].unit}`,"Outside the configured reference band (not a diagnosis).","Recheck the measurement; consult the crew medical officer / flight surgeon."]);}
+  for(const m of MEDS)for(const f of medFlags(m))A.push([f[0],"Pharmaceutical",f[1],"Batch "+m.batch,f[2]]);
+  A.sort((a,b)=>b[0]-a[0]);const nn=A.length;$("badge").textContent=nn;$("badge").style.display=nn?"inline":"none";
+  const card=a=>`<div class="alert s${a[0]}"><b><span class="chip s${a[0]}">${ICON[a[0]]} ${LBL[a[0]]}</span> ${a[2]}</b><span class="small">${a[1]} · ${a[3]}<br>Suggested action: ${a[4]}</span></div>`;
+  $("allAlerts").innerHTML=nn?A.map(card).join(""):'<div class="small">All monitored parameters are within configured limits.</div>';
+  $("topAlerts").innerHTML=nn?A.slice(0,4).map(card).join(""):'<div class="small">No active alerts.</div>';}
+
+/* ===================== TABS, CONFIG ===================== */
+document.querySelectorAll("#nav button").forEach(b=>b.onclick=()=>{document.querySelectorAll("#nav button").forEach(x=>x.classList.toggle("on",x===b));
+  document.querySelectorAll(".tab").forEach(t=>t.classList.toggle("on",t.id==="t-"+b.dataset.t));if(b.dataset.t==="mission"){fit();profile();}});
+$("cfgTxt").value=JSON.stringify(CFG,null,1);
+$("cfgApply").onclick=()=>{try{const n=JSON.parse($("cfgTxt").value);for(const k of Object.keys(DEFAULT_CFG))if(!n[k]||!Array.isArray(n[k].bands))throw new Error("missing/invalid: "+k);CFG=n;$("cfgMsg").textContent="Applied.";renderLife();renderVitals();timeAndO2();alerts();}catch(e){$("cfgMsg").textContent="Not applied: "+e.message;}};
+$("cfgReset").onclick=()=>{CFG=JSON.parse(JSON.stringify(DEFAULT_CFG));$("cfgTxt").value=JSON.stringify(CFG,null,1);renderLife();renderVitals();timeAndO2();alerts();$("cfgMsg").textContent="Reset.";};
+
+/* ===================== INIT ===================== */
+renderLife();renderVitals();renderMeds();fit();plan();
+</script>
+</body>
+</html>
