@@ -18,7 +18,7 @@ Everything Mars Pathfinder uses or cites, with what it was used for and its stat
    Solar System Scope (https://www.solarsystemscope.com/textures/), licensed CC BY 4.0, based on NASA imagery data.
    Obtained via Wikimedia Commons: https://commons.wikimedia.org/wiki/File:Solarsystemscope_texture_2k_mars.jpg
    Required attribution: "Solar System Scope, CC BY 4.0, via Wikimedia Commons".
-   *Used for:* the 3D globe on the landing page.
+   *Used for:* the 3D globe on the landing page and, since the 3D globe view was added to Mission Control, as the default surface texture of that globe (embedded in the file, works offline).
 
 ## Challenge material
 
@@ -51,7 +51,25 @@ Everything Mars Pathfinder uses or cites, with what it was used for and its stat
 
 ## Software used to build it
 
-12. Python, NumPy, SciPy, Pillow and OpenCV (data processing, routing engine, tests and previews); plain HTML, CSS, JavaScript and WebGL for the app (no third-party front-end libraries).
+12. Python, NumPy, SciPy, Pillow and OpenCV (data processing, routing engine, tests and previews); plain HTML, CSS, JavaScript and WebGL for the app, plus Three.js (item 16) for the Mission Control 3D globe.
+
+## 3D globe in Mission Control (added in the final version)
+
+13. **ARES-V globe module** (`mars-globe.js`, `jezero-data.js`, `pathfinding.js`), written by a Mars Pathfinder team member (repository `nasa-challenge--MarsMap-2026`). Lightly modified: pauses when hidden, label text changed, default texture replaced by item 3.
+   *Status:* its Jezero overlay layers and terrain-height function are **illustrative, not derived from the HiRISE strip**; they are hidden by default and labelled as such in the app.
+14. **Exploration-target list** (Jezero, Gale, Valles Marineris, Olympus Mons, Gusev, Meridiani: names, coordinates and descriptions), taken from `src/destinations.js` in the team repository `L0C4LH057/Nasa_pathFinders`.
+   *Status:* only Jezero has terrain data in this app; the others are navigation targets only.
+15. **Surface layers on the globe**, streamed at run time from the USGS Astrogeology Mars web map service (https://planetarymaps.usgs.gov/), so they need an internet connection:
+   - **THEMIS infrared, day and night** (Mars Odyssey). Christensen, P. R., et al. (2004). "The Thermal Emission Imaging System (THEMIS) for the Mars 2001 Odyssey Mission." *Space Science Reviews*, 110, 85-130. Used for the thermal layers.
+   - **MOLA elevation colour** (Mars Global Surveyor). Smith, D. E., et al. (2001). "Mars Orbiter Laser Altimeter: Experiment summary after the first year of global mapping of Mars." *Journal of Geophysical Research*, 106(E10), 23689-23722. Used for the elevation-colour layer.
+   *Status:* the layer names were not verified against the live service when the app was built; if one fails to load the app falls back to the visible layer.
+16. **Three.js r128**, MIT licence, https://github.com/mrdoob/three.js (included in `index.html`).
+
+## Considered but not integrated
+
+17. **Global CTX Mosaic of Mars (V01)**, Bruce Murray Laboratory for Planetary Visualization, Caltech: https://murray-lab.caltech.edu/CTX/ (5 m/pixel; free use; credit "NASA/JPL/MSSS/The Murray Lab"; the page asks users to cite its Earth and Space Science paper and to acknowledge the Malin Space Science Systems and JPL teams). Distributed as 4 x 4 degree GeoTIFF tiles with no streaming service; the tile covering Jezero and our HiRISE strip is E076_N016. **Not used in the app unless a Jezero crop is added; do not list it as used until then.** Add the full paper citation from the Murray Lab page if it is used.
+18. **JPL Mars Trek** WMTS tile services (https://trek.nasa.gov/tiles/apidoc/trekAPI.html?body=mars) and **ASU JMARS TES mineral maps**: reviewed as possible thermal, spectral and mineral layers; not integrated.
+19. **Atmospheric and radiation data** (for example Mars 2020 MEDA weather and Curiosity RAD radiation data from the NASA Planetary Data System): not integrated; these are time series rather than map layers.
 
 ## Disclaimer
 
